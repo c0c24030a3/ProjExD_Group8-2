@@ -13,6 +13,7 @@ WIDTH, HEIGHT = 480, 640
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("縦スクロールシューティング")
 clock = pygame.time.Clock()
+current_stage = 4  # ステージフラグ4に設定。
 
 # --- 色定義 ---
 WHITE = (255, 255, 255)
@@ -20,7 +21,10 @@ RED = (255, 80, 80)
 BLACK = (0, 0, 0)
 
 # --- 画像読み込み ---
-bg_img = pygame.image.load("fig/sky.jpeg") #背景画像
+if current_stage==4:
+    bg_img = pygame.image.load("fig/stage4bg.jpg")# ← ステージ4用背景
+else:
+    bg_img = pygame.image.load("fig/sky.jpeg") #背景画像
 BG_W, BG_H = bg_img.get_size()
 
 f16_img = pygame.transform.rotate(pygame.transform.scale(pygame.image.load("fig/F16.png"), (60, 60)), 180)
@@ -113,7 +117,12 @@ class Enemy(pygame.sprite.Sprite):
         self.image = f16_img
         self.rect = self.image.get_rect(center=(random.randint(30, WIDTH - 30), -30))
         self.speed = random.randint(2, 4)
-        self.shot_timer = random.randint(30, 60)
+        self.shot_timer = random.randint(30, 60)# 連射用のタイマーをリセット
+        if current_stage == 4:# 連射中の連射間隔を設定
+            self.shot_interval = 30  # 連射用の間隔
+        else:
+            self.shot_interval = random.randint(90, 140)#通常の間隔
+
 
     def update(self):
         self.rect.y += self.speed
@@ -122,7 +131,11 @@ class Enemy(pygame.sprite.Sprite):
             missile = Sidewinder(self.rect.centerx, self.rect.bottom)
             all_sprites.add(missile)
             missiles.add(missile)
-            self.shot_timer = random.randint(90, 140)
+            #ステージ4の連射モードの場合は連射する。
+            if current_stage ==4:
+                self.shot_timer=self.shot_interval #連射間隔にする
+            else:#ステージ4でないなら
+                self.shot_timer = random.randint(90, 140)#通常間隔にする
         if self.rect.top > HEIGHT:
             self.kill()
 
