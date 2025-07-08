@@ -28,6 +28,7 @@ sidewinder_img = pygame.transform.rotate(
     pygame.transform.scale(pygame.image.load("fig/sidewinder.png"), (70, 120)), 180)
 beam_img = pygame.transform.scale(pygame.image.load("fig/beam.png"), (10, 20))  # ここがビーム画像
 explosion_img = pygame.transform.scale(pygame.image.load("fig/explosion.gif"), (60, 60))
+obstacle_img = pygame.transform.scale(pygame.image.load("fig/bakudan.png"), (40, 40)) #障害物画像
 
 # --- フォントとスコア ---
 font = pygame.font.SysFont(None, 36)
@@ -126,11 +127,26 @@ class Enemy(pygame.sprite.Sprite):
         if self.rect.top > HEIGHT:
             self.kill()
 
+# --- 障害物クラス ---
+class Obstacle(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+        self.image = obstacle_img
+        self.rect = self.image.get_rect(center=(random.randint(20, WIDTH - 20), -20))
+        self.speed = random.randint(2, 5)
+
+    def update(self):
+        self.rect.y += self.speed
+        if self.rect.top > HEIGHT:
+            self.kill()
+
+
 # --- グループ定義 ---
 all_sprites = pygame.sprite.Group()
 enemies = pygame.sprite.Group()
 missiles = pygame.sprite.Group()
 explosions = pygame.sprite.Group()
+obstacles = pygame.sprite.Group()
 
 # キャラクターデータ（画像も渡す）
 characters = {
@@ -165,6 +181,12 @@ while True:
         player.update_shots()
 
         enemy_timer += 1
+
+        if random.randint(0, 100) < 1: # 障害物を生成
+            obstacle = Obstacle()
+            all_sprites.add(obstacle)
+            obstacles.add(obstacle)
+
         if enemy_timer > 30:
             enemy = Enemy()
             all_sprites.add(enemy)
@@ -194,6 +216,14 @@ while True:
             all_sprites.add(explosion)
             explosions.add(explosion)
             game_over = True
+        
+        # 衝突( 障害物　vs プレイヤー）
+        if any(ob.rect.colliderect(player.rect) for ob in obstacles):
+            explosion = Explosion(player.rect.center)
+            all_sprites.add(explosion)
+            explosions.add(explosion)
+            game_over = True
+
 
     # 背景スクロール（先に描画）
     scroll += 2
