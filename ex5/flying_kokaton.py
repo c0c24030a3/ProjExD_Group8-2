@@ -185,6 +185,7 @@ class Game:
             pygame.display.flip()
 
 
+#--- フォントとスコア ---
 class Explosion(pygame.sprite.Sprite):
     def __init__(self, center):
         super().__init__()
@@ -198,6 +199,7 @@ class Explosion(pygame.sprite.Sprite):
             self.kill()
 
 
+# --- Playerクラス ---
 class Player:
     def __init__(self, char_data):
         self.name = char_data["name"]
@@ -240,12 +242,13 @@ class Player:
             screen.blit(beam_img, shot)   # 矩形ではなく画像を描画v
 
 
+# --- ミサイルクラス（直進） ---
 class Sidewinder(pygame.sprite.Sprite):
     def __init__(self, x, y):
         super().__init__()
         self.image = sidewinder_img
         self.rect = self.image.get_rect(center=(x, y))
-        self.rect.inflate_ip(-30, 0)
+        self.rect.inflate_ip(-30, 0)  # 当たり判定調整
         self.speed = 4
 
     def update(self):
@@ -254,6 +257,7 @@ class Sidewinder(pygame.sprite.Sprite):
             self.kill()
 
 
+# --- 敵クラス（F16） ---
 class Enemy(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
