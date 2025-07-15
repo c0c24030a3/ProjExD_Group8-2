@@ -291,9 +291,21 @@ enemy_timer = 0
 stage_timer = 0
 stage2_items_generated = False
 
-stage=int(input("呪文を入力。ステージ1は「2」"))
+stage=int(input("あいことばを入力。ステージ1は「2」"))
 
+gamecode=0
 if stage==334: #ラスボスステージ
+    gamecode=input("呪文を入力")
+    if gamecode==3456:
+        player.has_shield = True
+        print("シールドをゲットした！")
+    if gamecode==1836:
+        player.powered_up = True
+        print("弾が大きくなった！")
+    if gamecode==8000:
+        player.speed += 2
+        print("素早くなった！")
+    #呪文を聞く部分(共通)
     bg_img = pygame.image.load("fig/rastboss.jpg")  # 固定背景画像
     bg_img = pygame.transform.scale(bg_img, (WIDTH, HEIGHT))
     BG_W, BG_H = bg_img.get_size()
@@ -399,6 +411,17 @@ if stage== 111:
     bg_img = pygame.transform.scale(bg_img, (WIDTH, HEIGHT))
     BG_W, BG_H = bg_img.get_size()
     mode="play"
+    gamecode=input("呪文を入力")
+    if gamecode==3456:
+        player.has_shield = True
+        print("シールドをゲットした！")
+    if gamecode==1836:
+        player.powered_up = True
+        print("弾が大きくなった！")
+    if gamecode==8000:
+        player.speed += 2
+        print("素早くなった！")
+    #呪文を聞く部分(共通)
     while True:
         clock.tick(60)
 
@@ -436,7 +459,7 @@ if stage== 111:
                     enemy_timer = 0
 
                 # ステージ2へ移行(織井)
-                if score >= 2000:
+                if score >= 200:
                     stage = 3
                     stage_timer = 0
                     player.shots.clear()
@@ -462,10 +485,13 @@ if stage== 111:
                     if player.rect.colliderect(item.rect):
                         if item.type == "shield":
                             player.has_shield = True
+                            print("シールドの呪文「3456」")
                         elif item.type == "power":
                             player.powered_up = True
+                            print("火力の呪文「1836」")
                         elif item.type == "speed":
                             player.speed += 2
+                            print("素早くなる呪文「8000」")
                         item.kill()
                         #  他のアイテムを消す
                         for other in items:
@@ -477,7 +503,7 @@ if stage== 111:
                         break
             # ステージ3仮（織井）
             elif mode == "stage3":
-                print("ステージ2の呪文は「777」")
+                print("ステージ2のあいことばは「777」")
                 break
 
             # --- 弾と敵の衝突判定 ---
@@ -534,10 +560,22 @@ if stage== 111:
         pygame.display.flip()
 
 
-if stage==777:
+if stage==777: #ステージ2
+    gamecode=input("呪文を入力")
+    if gamecode==3456:
+        player.has_shield = True
+        print("シールドをゲットした！")
+    if gamecode==1836:
+        player.powered_up = True
+        print("弾が大きくなった！")
+    if gamecode==8000:
+        player.speed += 2
+        print("素早くなった！")
+    #呪文を聞く部分(共通)
     bg_img = pygame.image.load("fig/sky.jpeg") #背景画像
     bg_img = pygame.transform.scale(bg_img, (WIDTH, HEIGHT))
     BG_W, BG_H = bg_img.get_size()
+
     while True:
         clock.tick(60)
 
@@ -556,7 +594,8 @@ if stage==777:
                 obstacle = Obstacle()
                 all_sprites.add(obstacle)
                 obstacles.add(obstacle)
-
+            
+            enemy_timer+=1
             if enemy_timer > 30:
                 enemy = Enemy()
                 all_sprites.add(enemy)
@@ -588,6 +627,13 @@ if stage==777:
                 game_over = True
 
 
+            if any(enemy.rect.colliderect(player.rect) for enemy in enemies) or \
+            any(missile.rect.colliderect(player.rect) for missile in missiles):
+                explosion = Explosion(player.rect.center)
+                all_sprites.add(explosion)
+                explosions.add(explosion)
+                game_over = True
+
         # 背景スクロール（先に描画）
         scroll += 2
         scroll %= BG_H
@@ -602,6 +648,11 @@ if stage==777:
         # スコア表示
         score_text = font.render(f"Score: {score}", True, WHITE)
         screen.blit(score_text, (10, 10))
+
+        if score>=200:#ゲームクリア処理
+            print("次のステージの呪文は「292」だよ")#数字変更
+            break
+
 
         # ゲームオーバー表示
         if game_over:
