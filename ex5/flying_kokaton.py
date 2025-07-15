@@ -19,7 +19,6 @@ FPS = 60
 STATE_HOME = "home"
 STATE_CHAR_SELECT = "char_select"
 STATE_GAME = "game"
-STATE_SECRET = "secret"
 
 # --- 初期化 ---
 pygame.init()
@@ -238,7 +237,7 @@ class Player:
     def draw(self, screen):
         screen.blit(self.image, self.rect)
         for shot in self.shots:
-            screen.blit(beam_img, shot)   # 矩形ではなく画像を描画v
+            screen.blit(beam_img, shot)   # 矩形ではなく画像を描画
 
 
 # --- ミサイルクラス（直進） ---
@@ -293,7 +292,7 @@ def main():
             ui.draw_home()
         elif ui.state == STATE_CHAR_SELECT:
             ui.draw_char_select()
-        elif ui.state in [STATE_GAME, STATE_SECRET]:
+        elif ui.state in [STATE_GAME]:
             game = Game(CHARACTER_DATA[ui.selected_char])
             game.run()
             break  # ゲーム終了後にプログラムを終える場合。再スタートしたいなら break を削除
