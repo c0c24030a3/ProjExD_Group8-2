@@ -12,6 +12,7 @@ WIDTH, HEIGHT = 480, 640
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("縦スクロールシューティング")
 clock = pygame.time.Clock()
+current_stage = 4  # ステージフラグ4に設定。
 
 # --- 色定義 ---
 WHITE = (255, 255, 255)
@@ -20,6 +21,7 @@ BLACK = (0, 0, 0)
 
 # --- 画像読み込み ---
 
+  
 
 f16_img = pygame.transform.rotate(pygame.transform.scale(pygame.image.load("fig/F16.png"), (60, 60)), 180)
 sidewinder_img = pygame.transform.rotate(pygame.transform.scale(pygame.image.load("fig/sidewinder.png"), (70, 120)), 180)
@@ -167,7 +169,12 @@ class Enemy(pygame.sprite.Sprite):
         self.image = f16_img
         self.rect = self.image.get_rect(center=(random.randint(30, WIDTH - 30), -30))
         self.speed = random.randint(2, 4)
-        self.shot_timer = random.randint(30, 60)
+        self.shot_timer = random.randint(30, 60)# 連射用のタイマーをリセット
+        if current_stage == 4:# 連射中の連射間隔を設定
+            self.shot_interval = 30  # 連射用の間隔
+        else:
+            self.shot_interval = random.randint(90, 140)#通常の間隔
+
 
     def update(self):
         self.rect.y += self.speed
@@ -176,7 +183,11 @@ class Enemy(pygame.sprite.Sprite):
             missile = Sidewinder(self.rect.centerx,self.rect.bottom) 
             all_sprites.add(missile)
             missiles.add(missile)
-            self.shot_timer = random.randint(90, 140)
+            #ステージ4の連射モードの場合は連射する。
+            if current_stage ==4:
+                self.shot_timer=self.shot_interval #連射間隔にする
+            else:#ステージ4でないなら
+                self.shot_timer = random.randint(90, 140)#通常間隔にする
         if self.rect.top > HEIGHT:
             self.kill()
 
@@ -436,7 +447,7 @@ if stage== 111:
                     enemy_timer = 0
 
                 # ステージ2へ移行(織井)
-                if score >= 2000:
+                if score >= 200:
                     stage = 3
                     stage_timer = 0
                     player.shots.clear()
@@ -622,10 +633,95 @@ if stage==777:
                         sys.exit()
                 clock.tick(30)
             break
-
         pygame.display.flip()
 
+if stage==127:#ステージ3
+    while True:
+        bg_img = pygame.image.load("fig/stage4bg.jpg")# ← ステージ4用背景
+        BG_W, BG_H = bg_img.get_size()
+        clock.tick(60)
 
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+        if not game_over:
+            keys = pygame.key.get_pressed()
+            player.move(keys)
+            player.shoot(keys)
+            player.update_shots()
+
+            enemy_timer += 1
+            if enemy_timer > 30:
+                enemy = Enemy()
+                all_sprites.add(enemy)
+                enemies.add(enemy)
+                enemy_timer = 0
+
+            all_sprites.update()
+            missiles.update()
+            explosions.update()
+
+            # 衝突（弾 vs 敵）
+            for shot in player.shots[:]:
+                for enemy in enemies.sprites():
+                    if shot.colliderect(enemy.rect):
+                        player.shots.remove(shot)
+                        enemy.kill()
+                        explosion = Explosion(enemy.rect.center)
+                        all_sprites.add(explosion)
+                        explosions.add(explosion)
+                        score += 100
+                        break
+
+            # 衝突（敵 or ミサイル vs プレイヤー）
+            if any(enemy.rect.colliderect(player.rect) for enemy in enemies) or \
+            any(missile.rect.colliderect(player.rect) for missile in missiles):
+                explosion = Explosion(player.rect.center)
+                all_sprites.add(explosion)
+                explosions.add(explosion)
+                game_over = True
+
+        # 背景スクロール（先に描画）
+        scroll += 2
+        scroll %= BG_H
+        for y in range(-scroll, HEIGHT, BG_H):
+            for x in range(0, WIDTH, BG_W):
+                screen.blit(bg_img, (x, y))
+
+        # 描画
+        all_sprites.draw(screen)
+        player.draw(screen)
+
+        # スコア表示
+        score_text = font.render(f"Score: {score}", True, WHITE)
+        screen.blit(score_text, (10, 10))
+
+        # ゲームオーバー表示
+        if game_over:
+            over_text = big_font.render("GAME OVER", True, RED)
+            info_text = font.render("Press any key to exit", True, WHITE)
+            screen.blit(over_text, over_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 30)))
+            screen.blit(info_text, info_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 30)))
+            pygame.display.flip()
+
+            waiting = True
+            while waiting:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        pygame.quit()
+                        sys.exit()
+                    elif event.type == pygame.KEYDOWN:
+                        pygame.quit()
+                        sys.exit()
+                clock.tick(30)
+            break
+        if score >= 200:
+            print("ラスボスのあいことばは「334」")
+            break
+
+        pygame.display.flip()
 
 
 
