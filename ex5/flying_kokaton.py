@@ -39,9 +39,9 @@ explosion_img = pygame.transform.scale(pygame.image.load("fig/explosion.gif"), (
 
 # --- キャラ定義 ---
 CHARACTER_DATA = {
-    "default": {"name": "デフォこうかとん", "hp": 10, "speed": 10, "shot_speed": 10, "image": pygame.transform.scale(pygame.image.load("fig/3.png"), (40, 40))},
-    "power": {"name": "火力こうかとん", "hp": 7, "speed": 5, "shot_speed": 20, "image": pygame.transform.scale(pygame.image.load("fig/fireこうかとん.png"),(40,40))},
-    "speed": {"name": "素早いこうかとん", "hp": 7, "speed": 20, "shot_speed": 5, "image": pygame.transform.scale(pygame.image.load("fig/speedこうかとん.png"),(40,40))}
+    "default": {"name": "デフォこうかとん", "speed": 10, "shot_speed": 10, "image": pygame.transform.scale(pygame.image.load("fig/3.png"), (40, 40))},
+    "power": {"name": "火力こうかとん", "speed": 5, "shot_speed": 15, "image": pygame.transform.scale(pygame.image.load("fig/fireこうかとん.png"),(40,40))},
+    "speed": {"name": "素早いこうかとん", "speed": 15, "shot_speed": 5, "image": pygame.transform.scale(pygame.image.load("fig/speedこうかとん.png"),(40,40))}
 }
 
 class UIManager:
@@ -67,7 +67,7 @@ class UIManager:
         screen.fill(BLACK)
         y = 100
         for key, ch in CHARACTER_DATA.items():
-            line = f"{key.upper()} - {ch['name']}  HP:{ch['hp']} Speed:{ch['speed']} Rate:{ch['shot_speed']}"
+            line = f"{key.upper()} - {ch['name']} Speed:{ch['speed']} Rate:{ch['shot_speed']}"
             txt = font.render(line, True, WHITE)
             screen.blit(txt, (50, y))   # テキスト情報を表示
             screen.blit(ch["image"],(0,y))  # キャラの画像を表示
@@ -203,7 +203,6 @@ class Explosion(pygame.sprite.Sprite):
 class Player:
     def __init__(self, char_data):
         self.name = char_data["name"]
-        self.hp = char_data["hp"]
         self.speed = char_data["speed"]
         self.shot_speed = char_data["shot_speed"]  # 連射速度（回/秒）
         self.image = pygame.transform.flip(pygame.transform.scale(char_data["image"], (40, 40)), True, False)
