@@ -48,6 +48,7 @@ class UIManager:
         self.state = STATE_HOME
         self.selected_char = "default"
         self.score = 0
+        self.stage = 1  # 1: ステージ1, 2: ステージ2 ...
 
     def draw_home(self):
         screen.fill(BLACK)  # 背景を黒にする
@@ -66,7 +67,7 @@ class UIManager:
         screen.fill(BLACK)
         y = 100
         for key, ch in CHARACTER_DATA.items():
-            line = f"{key.upper()} - {ch['name']} Speed:{ch['speed']} Rate:{ch['shot_speed']}"
+            line = f"{key.upper()} - Speed:{ch['speed']} Rate:{ch['shot_speed']}"
             txt = font.render(line, True, WHITE)
             screen.blit(txt, (50, y))   # テキスト情報を表示
             screen.blit(ch["image"],(0,y))  # キャラの画像を表示
@@ -131,6 +132,10 @@ class Game:
             self.all_sprites.update()
             self.missiles.update()
             self.explosions.update()
+
+            if self.score >= 1000:  # 例えば1000点
+                self.running = False
+                return "next_stage"  # ← run()の戻り値で判定
 
             # 弾と敵の当たり判定
             for shot in self.player.shots[:]:
@@ -294,8 +299,12 @@ def main():
             ui.draw_char_select()
         elif ui.state in [STATE_GAME]:
             game = Game(CHARACTER_DATA[ui.selected_char])
-            game.run()
-            break  # ゲーム終了後にプログラムを終える場合。再スタートしたいなら break を削除
+            result = game.run()
+            if result == "next_stage":
+                ui.stage += 1  # ステージ進行
+                ui.state = STATE_GAME  # もう一度 Game に進む
+            else:
+                ui.state = STATE_HOME  # 通常のゲームオーバーならタイトルへ戻る
 
 if __name__ == "__main__":
     pg.init()
