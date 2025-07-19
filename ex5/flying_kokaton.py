@@ -210,7 +210,7 @@ class Game:
         # 必要な変数もここでセットアップ
 
     def run(self):
-        self.stage = 1  # 初期ステージを0に
+        self.stage = 0  # 初期ステージを0に
         result = None
         while True:
             # ステージ結果に応じて次のステージへ
@@ -430,7 +430,7 @@ class Game:
                             pygame.quit()
                             sys.exit()
 
-            if self.score >= 1000:
+            if self.score >= 100:
                 self.game_clear = True
                 return "next_stage"
             if self.game_over:
