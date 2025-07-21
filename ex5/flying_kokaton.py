@@ -251,7 +251,7 @@ class Game:
         # 必要な変数もここでセットアップ
 
     def run(self):
-        self.stage = 2  # 初期ステージを0に
+        self.stage = 0  # 初期ステージを0に
         result = None
         while True:
             if self.stage == 0:
