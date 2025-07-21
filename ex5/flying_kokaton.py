@@ -5,7 +5,6 @@ import sys
 import pygame
 import random
 import math
-import pygame as pg
 
 # --- 作業ディレクトリをスクリプトの場所に設定 ---
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -43,9 +42,9 @@ obstacle_img = pygame.transform.scale(pygame.image.load("fig/bakudan.png"), (40,
 
 # --- キャラ定義 ---
 CHARACTER_DATA = {
-    "default": {"name": "デフォこうかとん", "speed": 10, "shot_speed": 10, "image": pygame.transform.scale(pygame.image.load("fig/3.png"), (40, 40))},
-    "power": {"name": "火力こうかとん", "speed": 5, "shot_speed": 15, "image": pygame.transform.scale(pygame.image.load("fig/fireこうかとん.png"),(40,40))},
-    "speed": {"name": "素早いこうかとん", "speed": 15, "shot_speed": 5, "image": pygame.transform.scale(pygame.image.load("fig/speedこうかとん.png"),(40,40))}
+    "default": {"name": "デフォこうかとん", "speed": 7, "shot_speed": 7, "image": pygame.transform.scale(pygame.image.load("fig/3.png"), (40, 40))},
+    "power": {"name": "火力こうかとん", "speed": 5, "shot_speed": 10, "image": pygame.transform.scale(pygame.image.load("fig/fireこうかとん.png"),(40,40))},
+    "speed": {"name": "素早いこうかとん", "speed": 10, "shot_speed": 5, "image": pygame.transform.scale(pygame.image.load("fig/speedこうかとん.png"),(40,40))}
 }
 
 class UIManager:
@@ -101,6 +100,25 @@ class UIManager:
                 self.state = STATE_HOME  # キャラ選択したらホームに戻る
 
 
+class RasubossBullet(pygame.sprite.Sprite):
+    def __init__(self, x, y, angle_deg):
+        super().__init__()
+        self.image = pygame.Surface((10, 10), pygame.SRCALPHA)
+        pygame.draw.circle(self.image, (255, 0, 0), (5, 5), 5)  # 赤い丸の弾
+        self.rect = self.image.get_rect(center=(x, y))
+        self.speed = 7
+        self.angle = math.radians(angle_deg)
+        # 弾の速度ベクトル
+        self.vx = self.speed * math.cos(self.angle)
+        self.vy = self.speed * math.sin(self.angle)
+
+    def update(self):
+        self.rect.x += self.vx
+        self.rect.y += self.vy
+        # 画面外に出たら消す
+        if self.rect.top > HEIGHT or self.rect.right < 0 or self.rect.left > WIDTH:
+            self.kill()
+
 class Rasuboss(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
@@ -110,15 +128,38 @@ class Rasuboss(pygame.sprite.Sprite):
         self.speed = 2
         self.direction = 1
 
+        self.attack_cooldown = 120  # 攻撃間隔（フレーム数）
+        self.attack_timer = 0
+
+        self.bullets_group = pygame.sprite.Group()  # 弾グループ
+
     def update(self):
         # 左右に移動
         self.rect.x += self.speed * self.direction
         if self.rect.left < 0 or self.rect.right > WIDTH:
             self.direction *= -1
 
+        # 攻撃処理
+        self.attack_timer += 1
+        if self.attack_timer >= self.attack_cooldown:
+            self.attack_timer = 0
+            self.fire_bullets()
+
+        # 弾の更新
+        self.bullets_group.update()
+
         # 死亡判定
         if self.hp <= 0:
             self.kill()
+
+    def fire_bullets(self):
+        # 5発の角度（度数法）、真下を90度として左右に15度ずつずらす
+        angles = [60, 75, 90, 105, 120]
+        x = self.rect.centerx
+        y = self.rect.bottom
+        for angle in angles:
+            bullet = RasubossBullet(x, y, angle)
+            self.bullets_group.add(bullet)
 
 class SelectScreen:
     def __init__(self, screen, font, clock):
@@ -210,22 +251,9 @@ class Game:
         # 必要な変数もここでセットアップ
 
     def run(self):
-        self.stage = 0  # 初期ステージを0に
+        self.stage = 2  # 初期ステージを0に
         result = None
         while True:
-            # ステージ結果に応じて次のステージへ
-            if result == "next_stage":
-                self.stage += 1
-                self.stage_clear = True
-                if self.stage > 4:
-                    return "game_clear"
-                result = None
-
-            elif result == "game_over":
-                return "game_over"
-            elif result == "game_clear":
-                return "game_clear"
-            
             if self.stage == 0:
                 result = self.stage_0()
             elif self.stage == 1:
@@ -238,6 +266,20 @@ class Game:
                 result = self.stage_boss()
             else:
                 return "game_over"
+            
+            # ステージ結果に応じて次のステージへ
+            if result == "next_stage":
+                self.stage += 1
+                self.stage_clear = True
+                if self.stage > 4:
+                    return "game_clear"
+                # result = None
+
+            elif result == "game_over":
+                return "game_over"
+            elif result == "game_clear":
+                return "game_clear"
+            
 
             self.clock.tick(60)
             
@@ -249,11 +291,25 @@ class Game:
             return event
         return None
 
-    def stage_boss(self):
+    def reset_stage(self):
+        self.all_sprites.empty()
+        self.enemies.empty()
+        self.missiles.empty()
+        self.explosions.empty()
+        self.items.empty()
+        self.obstacles.empty()
+        self.boss_group.empty()
+        self.player.shots.clear()
+        self.game_over = False
+        self.game_clear = False
+        self.score = 0
 
+    def stage_boss(self):
+        self.reset_stage()
         bg_img = pygame.image.load("fig/rastboss.jpg")
         bg_img = pygame.transform.scale(bg_img, (self.WIDTH, self.HEIGHT))
         BG_W, BG_H = bg_img.get_size()
+        
 
         while True:
             self.clock.tick(60)
@@ -267,14 +323,14 @@ class Game:
                 self.player.update_shots()
 
             self.enemy_timer += 1
-            if self.enemy_timer > 240:
+            if self.enemy_timer > 100:
                 enemy = Enemy()
                 self.all_sprites.add(enemy)
                 self.enemies.add(enemy)
                 self.enemy_timer = 0
 
                 # スコア500でラスボス出現
-                if self.score >= 500 and not self.boss_spawned:
+                if self.score >= 1000 and not self.boss_spawned:
                     self.enemies.empty()
                     self.missiles.empty()
                     boss = Rasuboss()
@@ -282,40 +338,70 @@ class Game:
                     self.all_sprites.add(boss)
                     self.boss_spawned = True
 
-                self.all_sprites.update()
-                self.missiles.update()
-                self.explosions.update()
-                self.boss_group.update()
+            self.all_sprites.update()
+            self.missiles.update()
+            self.explosions.update()
+            self.boss_group.update()
+
+            # 追加：ラスボスの弾も更新
+            if self.boss_spawned and boss.alive():
+                boss.bullets_group.update()
+
 
                 # 弾 vs 敵
+            for shot in self.player.shots[:]:
+                for enemy in self.enemies.sprites():
+                    if shot.colliderect(enemy.rect):
+                        self.player.shots.remove(shot)
+                        enemy.kill()
+                        explosion = Explosion(enemy.rect.center)
+                        self.all_sprites.add(explosion)
+                        self.explosions.add(explosion)
+                        self.score += 100
+                        break
+                # 弾 vs ラスボス
+            if self.boss_spawned and boss.alive():
                 for shot in self.player.shots[:]:
-                    for enemy in self.enemies.sprites():
-                        if shot.colliderect(enemy.rect):
-                            self.player.shots.remove(shot)
-                            enemy.kill()
-                            explosion = Explosion(enemy.rect.center)
+                    if shot.colliderect(boss.rect):
+                        self.player.shots.remove(shot)
+                        boss.hp -= 50  # 例：ダメージは50
+                        if boss.hp <= 0:
+                            boss.kill()
+                            self.score += 500
+                            self.game_clear = True
+                            explosion = Explosion(boss.rect.center)
                             self.all_sprites.add(explosion)
                             self.explosions.add(explosion)
-                            self.score += 100
-                            break
-                # 弾 vs ラスボス
-                if self.boss_spawned and boss.alive():
-                    for shot in self.player.shots[:]:
-                        if shot.colliderect(boss.rect):
-                            self.player.shots.remove(shot)
-                            boss.hp -= 50  # 例：ダメージは50
-                            if boss.hp <= 0:
-                                boss.kill()
-                                self.score += 500
-                                self.game_clear = True
-                                explosion = Explosion(boss.rect.center)
-                                self.all_sprites.add(explosion)
-                                self.explosions.add(explosion)
 
 
-            # 敵 or ミサイル vs プレイヤー
-            if any(enemy.rect.colliderect(self.player.rect) for enemy in self.enemies) or \
-               any(missile.rect.colliderect(self.player.rect) for missile in self.missiles):
+            # 敵 or ミサイル vs プレイヤー（バリア・ダメージ処理対応）
+            for enemy in self.enemies:
+                if enemy.rect.colliderect(self.player.rect):
+                    self.player.hit()
+                    enemy.kill()
+                    break
+
+            for missile in self.missiles:
+                if missile.rect.colliderect(self.player.rect):
+                    self.player.hit()
+                    missile.kill()
+                    break
+
+            if self.player.is_dead:
+                explosion = Explosion(self.player.rect.center)
+                self.all_sprites.add(explosion)
+                self.explosions.add(explosion)
+                self.game_over = True
+
+                # 追加：ラスボスの弾 vs プレイヤー
+            if self.boss_spawned and boss.alive():
+                for bullet in boss.bullets_group:
+                    if bullet.rect.colliderect(self.player.rect):
+                        self.player.hit()
+                        bullet.kill()
+                        break
+
+            if self.player.is_dead:
                 explosion = Explosion(self.player.rect.center)
                 self.all_sprites.add(explosion)
                 self.explosions.add(explosion)
@@ -326,9 +412,11 @@ class Game:
             self.all_sprites.draw(self.screen)
             self.player.draw(self.screen)
             self.boss_group.draw(self.screen)
+            if self.boss_spawned and boss.alive():
+                boss.bullets_group.draw(self.screen)
 
             # スコア表示
-            score_text = self.font.render(f"Score: {self.score}", True, (255, 255, 255))
+            score_text = self.font.render(f"Score: {self.score}", True, (0, 0, 128))
             self.screen.blit(score_text, (10, 10))
 
             # ラスボスHPバー
@@ -364,6 +452,10 @@ class Game:
             pygame.display.flip()
 
     def stage_0(self):
+        self.reset_stage()
+        bg_img = pygame.image.load("fig/sky.jpeg")  # 適切なファイルパスに置き換えて
+        bg_img = pygame.transform.scale(bg_img, (self.WIDTH, self.HEIGHT))
+
         while True:
             self.clock.tick(60)
             event = self.check_quit_events()
@@ -375,7 +467,7 @@ class Game:
                 self.player.update_shots()
 
             self.enemy_timer += 1
-            if self.enemy_timer > 240:
+            if self.enemy_timer > 120:
                 enemy = Enemy()
                 self.all_sprites.add(enemy)
                 self.enemies.add(enemy)
@@ -412,7 +504,7 @@ class Game:
             self.boss_group.draw(self.screen)
 
             # スコア表示
-            score_text = self.font.render(f"Score: {self.score}", True, (255, 255, 255))
+            score_text = self.font.render(f"Score: {self.score}", True, (0, 0, 128))
             self.screen.blit(score_text, (10, 10))
 
             # ゲームオーバー表示
@@ -430,14 +522,34 @@ class Game:
                             pygame.quit()
                             sys.exit()
 
-            if self.score >= 100:
+            if self.score >= 500:
                 self.game_clear = True
+
+                # ステージクリアの表示
+                clear_text = self.big_font.render("STAGE1 CLEAR!", True, (255, 255, 0))
+                info_text = self.font.render("Press any key to continue", True, (255, 255, 255))
+                self.screen.blit(clear_text, clear_text.get_rect(center=(self.WIDTH // 2, self.HEIGHT // 2 - 30)))
+                self.screen.blit(info_text, info_text.get_rect(center=(self.WIDTH // 2, self.HEIGHT // 2 + 30)))
+                pygame.display.flip()
+
+                # 少し待ってキー入力を待つ
+                pygame.time.wait(1000)
+                waiting = True
+                while waiting:
+                    for event in pygame.event.get():
+                        if event.type == pygame.QUIT or event.type == pygame.KEYDOWN:
+                            waiting = False
+
                 return "next_stage"
+
             if self.game_over:
                 return "game_over"
             pygame.display.flip()
 
     def stage_1(self):
+        self.reset_stage()
+        bg_img = pygame.image.load("fig/sky.jpeg")  # 適切なファイルパスに置き換えて
+        bg_img = pygame.transform.scale(bg_img, (self.WIDTH, self.HEIGHT))
         buff_selected = False
         self.score = 0
         while True:
@@ -451,7 +563,7 @@ class Game:
                 self.player.update_shots()
 
             self.enemy_timer += 1
-            if self.enemy_timer > 240:
+            if self.enemy_timer > 120:
                 enemy = Enemy()
                 self.all_sprites.add(enemy)
                 self.enemies.add(enemy)
@@ -491,12 +603,17 @@ class Game:
             self.boss_group.draw(self.screen)
 
             # スコア表示
-            score_text = self.font.render(f"Score: {self.score}", True, (255, 255, 255))
+            score_text = self.font.render(f"Score: {self.score}", True, (0, 0, 128))            
             self.screen.blit(score_text, (10, 10))
 
-                        
-            if self.score >= 100 and not buff_selected:
-                select_screen = SelectScreen(screen, font, clock)
+            if self.score >= 500 and not buff_selected:
+                # ステージクリア表示
+                clear_text = self.big_font.render("STAGE2 CLEAR", True, (255, 255, 0))
+                self.screen.blit(clear_text, clear_text.get_rect(center=(self.WIDTH // 2, self.HEIGHT // 2)))
+                pygame.display.flip()
+                pygame.time.wait(2000)  # 2秒間表示
+
+                select_screen = SelectScreen(self.screen, self.font, self.clock)
                 choice = select_screen.run()
                 buff_selected = True
                 if choice == "shield":
@@ -533,19 +650,24 @@ class Game:
             pygame.display.flip()
 
     def stage_2(self):
+        self.reset_stage()
+        self.enemies.empty()
+        self.missiles.empty()
+        bg_img = pygame.image.load("fig/sky.jpeg")  # 適切なファイルパスに置き換えて
+        bg_img = pygame.transform.scale(bg_img, (self.WIDTH, self.HEIGHT))
         buff_selected = False
         self.score = 0
+        self.player.is_dead = False
+        self.player.invincible_timer = 120  # 2秒間無敵（敵と即衝突しても死なない）
+        self.player.shield_used = False  # バリアの使用状態もリセットしたい場合
+        dark_overlay_timer = 0 
+
         while True:
             self.clock.tick(60)
             event = self.check_quit_events()
             keys = pygame.key.get_pressed()
-            if keys[pygame.K_LEFT] or keys[pygame.K_RIGHT] or keys[pygame.K_UP] or keys[pygame.K_DOWN]:
-                print("Move key pressed")
-            else:
-                print("No move key pressed")
 
             if not self.game_over and not self.game_clear:
-                print("Player move and shoot start")
                 self.player.move(keys)
                 self.player.shoot(keys)
                 self.player.update_shots()
@@ -556,7 +678,7 @@ class Game:
                 self.obstacles.add(obstacle)
 
             self.enemy_timer += 1
-            if self.enemy_timer > 240:
+            if self.enemy_timer > 120:
                 enemy = Enemy()
                 self.all_sprites.add(enemy)
                 self.enemies.add(enemy)
@@ -578,9 +700,30 @@ class Game:
                         self.score += 100
                         break
 
-            # 敵 or ミサイル vs プレイヤー
-            if any(enemy.rect.colliderect(self.player.rect) for enemy in self.enemies) or \
-            any(missile.rect.colliderect(self.player.rect) for missile in self.missiles):
+            # 敵 or ミサイル vs プレイヤー（バリア・ダメージ処理対応）
+            for enemy in self.enemies:
+                if enemy.rect.colliderect(self.player.rect):
+                    self.player.hit()
+                    enemy.kill()
+                    break
+
+            for missile in self.missiles:
+                if missile.rect.colliderect(self.player.rect):
+                    self.player.hit()
+                    missile.kill()
+                    break
+
+            for obstacle in self.obstacles:
+                if obstacle.rect.colliderect(self.player.rect):
+                    # 暗転開始（まだ暗転中でなければ）
+                    if dark_overlay_timer == 0:
+                        dark_overlay_timer = 300  # 5秒 × 60fps
+                    # 必要に応じて障害物を消す or 残す
+                    obstacle.kill()  # 消したければコメント外す
+                    break
+
+
+            if self.player.is_dead:
                 explosion = Explosion(self.player.rect.center)
                 self.all_sprites.add(explosion)
                 self.explosions.add(explosion)
@@ -593,8 +736,17 @@ class Game:
             self.boss_group.draw(self.screen)
 
             # スコア表示
-            score_text = self.font.render(f"Score: {self.score}", True, (255, 255, 255))
+            score_text = self.font.render(f"Score: {self.score}", True, (0, 0, 128))            
             self.screen.blit(score_text, (10, 10))
+
+            # 画面暗転処理（残り時間があれば）
+            if dark_overlay_timer > 0:
+                dark_surface = pygame.Surface((self.WIDTH, self.HEIGHT))
+                dark_surface.set_alpha(210)  #暗転の暗さ調節
+                dark_surface.fill((0, 0, 0))
+                self.screen.blit(dark_surface, (0, 0))
+                dark_overlay_timer -= 1
+
 
             # ゲームオーバー表示
             if self.game_over:
@@ -612,11 +764,16 @@ class Game:
                             sys.exit()
             
 
-            if self.score >= 100 and not buff_selected:
-                print("[DEBUG] score条件達成！SelectScreenへ移行")
-                select_screen = SelectScreen(screen, font, clock)
+            if self.score >= 1000 and not buff_selected:
+
+                # ステージクリア表示
+                clear_text = self.big_font.render("STAGE3 CLEAR", True, (255, 255, 0))
+                self.screen.blit(clear_text, clear_text.get_rect(center=(self.WIDTH // 2, self.HEIGHT // 2)))
+                pygame.display.flip()
+                pygame.time.wait(2000)  # 2秒間表示
+
+                select_screen = SelectScreen(self.screen, self.font, self.clock)
                 choice = select_screen.run()
-                print(f"[DEBUG] 選択されたバフ: {choice}")
                 buff_selected = True
                 if choice == "shield":
                     self.player.has_shield = True
@@ -631,12 +788,18 @@ class Game:
                 self.game_clear = True
 
                 return "next_stage"
-            print("[DEBUG] stage_2終了前")
             pygame.display.flip()
         
     def stage_3(self):
+        self.reset_stage()
+        bg_img = pygame.image.load("fig/sky.jpeg")  # 適切なファイルパスに置き換えて
+        bg_img = pygame.transform.scale(bg_img, (self.WIDTH, self.HEIGHT))
         buff_selected = False
         self.score = 0
+        self.player.is_dead = False
+        self.player.invincible_timer = 120  # 2秒間無敵（敵と即衝突しても死なない）
+        self.player.shield_used = False  # バリアの使用状態もリセットしたい場合
+
         while True:
             self.clock.tick(60)
             event = self.check_quit_events()
@@ -648,7 +811,7 @@ class Game:
                 self.player.update_shots()
 
             self.enemy_timer += 1
-            if self.enemy_timer > 240:
+            if self.enemy_timer > 120:
                 enemy = Enemy()
                 self.all_sprites.add(enemy)
                 self.enemies.add(enemy)
@@ -659,7 +822,7 @@ class Game:
             self.missiles.update()
             self.explosions.update()
 
-                # 弾 vs 敵
+            # 弾 vs 敵
             for shot in self.player.shots[:]:
                 for enemy in self.enemies.sprites():
                     if shot.colliderect(enemy.rect):
@@ -671,9 +834,21 @@ class Game:
                         self.score += 100
                         break
 
-            # 敵 or ミサイル vs プレイヤー
-            if any(enemy.rect.colliderect(self.player.rect) for enemy in self.enemies) or \
-            any(missile.rect.colliderect(self.player.rect) for missile in self.missiles):
+
+            # 敵 or ミサイル vs プレイヤー（バリア・ダメージ処理対応）
+            for enemy in self.enemies:
+                if enemy.rect.colliderect(self.player.rect):
+                    self.player.hit()
+                    enemy.kill()
+                    break
+
+            for missile in self.missiles:
+                if missile.rect.colliderect(self.player.rect):
+                    self.player.hit()
+                    missile.kill()
+                    break
+
+            if self.player.is_dead:
                 explosion = Explosion(self.player.rect.center)
                 self.all_sprites.add(explosion)
                 self.explosions.add(explosion)
@@ -686,7 +861,7 @@ class Game:
             self.boss_group.draw(self.screen)
 
             # スコア表示
-            score_text = self.font.render(f"Score: {self.score}", True, (255, 255, 255))
+            score_text = self.font.render(f"Score: {self.score}", True, (0, 0, 128))            
             self.screen.blit(score_text, (10, 10))
 
             # ゲームオーバー表示
@@ -704,8 +879,14 @@ class Game:
                             pygame.quit()
                             sys.exit()
 
-            if self.score >= 100 and not buff_selected:
-                select_screen = SelectScreen(screen, font, clock)
+            if self.score >= 1000 and not buff_selected:
+                # ステージクリア表示
+                clear_text = self.big_font.render("STAGE4 CLEAR", True, (255, 255, 0))
+                self.screen.blit(clear_text, clear_text.get_rect(center=(self.WIDTH // 2, self.HEIGHT // 2)))
+                pygame.display.flip()
+                pygame.time.wait(2000)  # 2秒間表示
+
+                select_screen = SelectScreen(self.screen, self.font, self.clock)
                 choice = select_screen.run()
                 buff_selected = True
                 if choice == "shield":
@@ -752,29 +933,26 @@ class Player:
         self.shots = []
         self.has_shield = False
         self.powered_up = False
-        self.speed = 5  # 通常スピード
         self.speed_buff = 0
         self.has_shield = False   # 1回だけ防げるバリア
         self.shield_used = False  # バリアが使われたかどうか
         self.powered_up = False   # 弾拡散フラグ
-        
+        self.shield_effect_timer = 0  # ← 消えるアニメーション用のタイマー
+        self.is_dead = False  # プレイヤーがやられたかどうか
+        self.invincible_timer = 0  # 無敵タイマー（フレーム数）
 
-
+    # Player.move() 修正例
     def move(self, keys):
-         # speedにバフを反映
         effective_speed = self.speed + self.speed_buff
-        print(f"Speed buff: {effective_speed}")
-
         if keys[pygame.K_LEFT] and self.rect.x > 0:
             self.rect.x -= effective_speed
-            print("Moving left")
         if keys[pygame.K_RIGHT] and self.rect.x < WIDTH - self.rect.width:
             self.rect.x += effective_speed
-            print("Moving right")
         if keys[pygame.K_UP] and self.rect.y > 0:
             self.rect.y -= effective_speed
         if keys[pygame.K_DOWN] and self.rect.y < HEIGHT - self.rect.height:
             self.rect.y += effective_speed
+
 
     def shoot(self, keys):
         self.shot_timer += 1
@@ -791,9 +969,20 @@ class Player:
                 self.shots.append(right_shot)
 
             self.shot_timer = 0
+    def hit(self):
+        if self.invincible_timer > 0:
+            # 無敵中はダメージ無効
+            return
+
+        if self.has_shield and not self.shield_used:
+            self.shield_used = True  # バリアを消費
+            self.has_shield = False
+            self.shield_effect_timer = 30
+            self.invincible_timer = 60  # バリア消費後、1秒間（60フレーム）無敵
+        else:
+            self.is_dead = True
 
     def update_shots(self):
-        print(f"Player pos: {self.rect.topleft}")
         for shot in self.shots[:]:
             shot.move_ip(0, -10)
             if shot.bottom < 0:
@@ -806,14 +995,13 @@ class Player:
         # バリアがあるけどまだ使っていないならバリアを描画（例：青い円など）
         if self.has_shield and not self.shield_used:
             pygame.draw.circle(screen, (0, 0, 255), self.rect.center, max(self.rect.width, self.rect.height), 3)
-    def hit(self):
-            """敵の攻撃を受けた時に呼ぶ処理例"""
-            if self.has_shield and not self.shield_used:
-                self.shield_used = True  # バリアを消費してダメージを防ぐ
-                # バリア効果の演出など追加可能
-            else:
-                # 実際のダメージ処理（例：ゲームオーバーフラグを立てるなど）
-                self.game_over = True
+        # バリアが使われた直後 → エフェクト表示（青→白→消える）
+        if self.shield_effect_timer > 0:
+            color = (0, 0, 255) if self.shield_effect_timer > 20 else (150, 150, 255)
+            pygame.draw.circle(screen, color, self.rect.center, max(self.rect.width, self.rect.height) + 5, 4)
+            self.shield_effect_timer -= 1
+        if self.invincible_timer > 0:
+            self.invincible_timer -= 1
 
 
 # --- ミサイルクラス（直進） ---
@@ -824,6 +1012,7 @@ class Sidewinder(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center=(x, y))
         self.rect.inflate_ip(-30, 0)  # 当たり判定調整
         self.speed = 8
+        self.speed = 8 if game.stage != 3 else 14 
 
     def update(self):
         self.rect.y += self.speed
@@ -847,7 +1036,12 @@ class Enemy(pygame.sprite.Sprite):
             missile = Sidewinder(self.rect.centerx, self.rect.bottom)
             game.missiles.add(missile)
             game.all_sprites.add(missile)
-            self.shot_timer = random.randint(90, 140)
+            # ステージによって発射頻度変更（ステージ3だけ速く）
+            if game.stage == 3:
+                self.shot_timer = random.randint(45, 70)  # 高速発射
+            else:
+                self.shot_timer = random.randint(90, 140)  # 通常速度
+
         if self.rect.top > HEIGHT:
             self.kill()
 
@@ -932,20 +1126,22 @@ def main():
                     WIDTH,
                     HEIGHT
                 )
+                game.stage = ui.stage
+
             result = game.run()
             if result == "next_stage":
                 ui.stage += 1
-                ui.state = STATE_GAME
                 game = None  # 新しいステージのためにリセット
             elif result in ("game_over", "game_clear"):
                 ui.state = STATE_HOME
+                ui.stage = 0
                 game = None
 
         pygame.display.flip()
 
 
 if __name__ == "__main__":
-    pg.init()
+    pygame.init()
     main()
-    pg.quit()
+    pygame.quit()
     sys.exit()
